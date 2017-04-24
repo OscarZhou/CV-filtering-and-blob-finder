@@ -26,11 +26,15 @@ typedef vector<point_set> obj_vector;
 
 void PrintArray(int* pArray, int length);
 
+
+
 int get_num_of_object(obj_vector vectorOfObj);
 int compare_for_median(const void * a, const void * b);
 Mat do_median_filter(Mat imageOri);
 int count_blob(Mat image);
 Mat color_object(Mat imageOri, obj_vector vectorOfObj, int numOfObj);
+
+
 
 
 void print_mat(Mat mat, string text);
@@ -150,7 +154,7 @@ int main(int argc, char** argv)
     Mat imageRet = do_median_filter(imageOri);
     for(int i=0; i<10; i++)
         imageRet = do_median_filter(imageRet);
-
+    cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!"<<endl;
     //------print_mat(imageOri, "------original image-------");
     //imwrite("saltandpepper_ret.jpg", imageRet);
 	//imageRet = do_median_filter(imageRet);
@@ -214,13 +218,15 @@ int main(int argc, char** argv)
 
 
 
-
-
+/************************************************************************
+*
+* this function is used as qsort rule
+*
+*************************************************************************/
 int compare_for_median(const void * a, const void * b)
 {
     return ( *(int*)a - *(int*)b );
 }
-
 
 Mat do_median_filter(Mat imageOri)
 {
@@ -322,8 +328,6 @@ Mat do_median_filter(Mat imageOri)
 
 int count_blob(Mat image)
 {
-
-
     /************************************************************************
     *
     * Binamise the filtered image
@@ -358,7 +362,7 @@ int count_blob(Mat image)
     //imshow("Figure5",image);
     /************************************************************************
     *
-    * Copy original matrix to imgOriginExtraBoundary and initialize matrixA -1
+    * Copy original matrix into imgOriginExtraBoundary and initialize matrixA -1
     *
     *************************************************************************/
     //print_mat(imgOriginExtraBoundary, "------extra boundary image-----");
@@ -421,7 +425,6 @@ int count_blob(Mat image)
                         // Modify the value of current position in current array
                         //print_set(vectorOfObj[s2], s2);
                         matrixA[x][y] = s2;
-
                     }
 
                     if((s1 != s2) && (s1 != -1) && (s2 !=-1))
@@ -511,6 +514,15 @@ Mat color_object(Mat imageOri, obj_vector vectorOfObj, int numOfObj)
 {
     Mat imageRet;
     imageRet.create(imageOri.size(), CV_8UC3);
+
+    int obj_no = 0; // the variable for controling color
+
+    /************************************************************************
+    *
+    * copy original image
+    *
+    *************************************************************************/
+
     for(int y=0; y<imageOri.rows; y++)
         for(int x=0; x<imageOri.cols; x++)
         {
@@ -519,13 +531,24 @@ Mat color_object(Mat imageOri, obj_vector vectorOfObj, int numOfObj)
             MpixelB(imageRet, x, y) = Mpixel(imageOri, x, y);
         }
 
+    /************************************************************************
+    *
+    * check each unit of vector and color each unit according to the position of point in it
+    *
+    *************************************************************************/
     if(!vectorOfObj.empty())
     {
         for(obj_vector::iterator it=vectorOfObj.begin(); it!=vectorOfObj.end(); it++)
         {
             //if( !((point_set)*it).empty() && ((point_set)*it).size() >50)
-            if( !((point_set)*it).empty())
+            if( !((point_set)*it).empty()) // it may occur empty unit because two neighbour units will be merged into one of them, and another one will be emptied
             {
+                obj_no++;
+                int R_G_B[3] = {0};
+                R_G_B[0] = 255/numOfObj*obj_no;
+                R_G_B[1] = 255/numOfObj*(obj_no+3);
+                R_G_B[2] = 255/numOfObj*(obj_no+7);
+
                 point_set setOfObj =  *it;
                 for(point_set::iterator it= setOfObj.begin(); it!=setOfObj.end(); it++)
                 {
@@ -535,15 +558,15 @@ Mat color_object(Mat imageOri, obj_vector vectorOfObj, int numOfObj)
                     // the position of the points recorded in sets is one row and one column more
                     int x = ((Point_Oscar)*it).x-1;
                     int y = ((Point_Oscar)*it).y-1;
-                    MpixelR(imageRet, x, y) = 0;
-                    MpixelG(imageRet, x, y) = 255;
-                    MpixelB(imageRet, x, y) = 255;
-                }
 
+                    MpixelG(imageOri, x, y) = R_G_B[0];
+                    MpixelB(imageOri, x, y) = R_G_B[1];
+                    MpixelR(imageOri, x, y) = R_G_B[2];
+                }
             }
         }
     }
-    return imageRet;
+    return imageOri;
 }
 
 
