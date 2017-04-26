@@ -1,4 +1,5 @@
 #include <iostream>
+#include <time.h>
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
 
@@ -90,6 +91,9 @@ int count_object(Mat imgOri);
 
 int main(int argc, char** argv)
 {
+
+    clock_t  clockBegin, clockEnd;
+    clockBegin = clock();
     if(argc!=2) {
         cout<<"needs 2 argument, e.g.image.jpg"<<endl;
         exit(0);
@@ -104,7 +108,7 @@ int main(int argc, char** argv)
 	imshow("Step2: MedianFilterImage", imgMedianFilter);
 
     namedWindow("Step3: ThresholdFilterImage", 0);
-    Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 0);
+    Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
 	imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
 
     namedWindow("Step4: SecondMedianFilterImage", 0);
@@ -116,8 +120,11 @@ int main(int argc, char** argv)
 
     char printit[100];
     sprintf(printit,"%d",num);
-    putText(imgThresholdFilter, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+    putText(imgMedianFilter2, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
 
+
+    clockEnd = clock();
+    printf("the prgram runs %ld ms\n", clockEnd - clockBegin);
     waitKey();
     return 0;
 }
@@ -254,6 +261,10 @@ Mat do_threshold_filter(Mat imgOri, int flag)
     {
         threshold(imgOri, imgPcd, 0 ,255, CV_THRESH_BINARY | CV_THRESH_OTSU);
     }
+    else if(flag == 1)
+    {
+        threshold(imgOri, imgPcd, 50, 255, THRESH_BINARY); // threshold is set as 50 which is for increasing accuracy
+    }
     return imgPcd;
 }
 
@@ -316,12 +327,14 @@ int count_object(Mat imgOri)
                     if((s1 != s2) && (s1 != -1) && (s2 != -1))
                     {
                         point_set* pset = &vec[s2];
+
                         for(point_set::iterator it=pset->begin(); it!=pset->end(); it++)
                         {
-                           ((point_set)vec[s1]).insert(*it);
+                           //((point_set)vec[s1]).insert(*it);
                             matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s1;
                         }
 
+                        ((point_set)vec[s1]).insert(pset->begin(), pset->end());
                         pset->clear();
                         pset = NULL;
                     }
@@ -353,7 +366,7 @@ int count_object(Mat imgOri)
         {
             point_set poset = *it;
             //cout<<"the numbers of points in poset: "<<poset.size()<<endl;
-            if(!poset.empty())
+            if(!poset.empty() && poset.size()>20) // size>20 is for increasing the accuracy
                 num++;
         }
     }
