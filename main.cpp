@@ -107,7 +107,11 @@ int main(int argc, char** argv)
     Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 0);
 	imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
 
-    int num = count_object(imgThresholdFilter);
+    namedWindow("Step4: SecondMedianFilterImage", 0);
+    Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
+	imshow("Step4: SecondMedianFilterImage", imgMedianFilter2);
+
+    int num = count_object(imgMedianFilter2);
     cout<<"the number is "<<num<<endl;
 
     char printit[100];
@@ -266,38 +270,18 @@ int count_object(Mat imgOri)
     set_vector vec;
     int counter = -1, s1, s2;
 
-    int width = imgOri.cols + 1;
-    int height = imgOri.rows + 1;
+    int width = imgOri.cols;
+    int height = imgOri.rows;
     int* matrixA = new int[width * height];
+    //memset(matrixA, -1, width * height);
 
-    Mat imgBoundry;
-    imgBoundry.create(height, width, CV_8UC1);
-
-    /************************************************************************
-    *
-    * Move image into a new one with top and left boundary
-    *
-    *************************************************************************/
     for(int y=0; y< height; y++)
+    {
         for(int x=0; x<width; x++)
         {
-            if(x==0 || y==0 )
-            {
-                Mpixel(imgBoundry, x, y) = 0;
-            }
-            else
-            {
-                Mpixel(imgBoundry, x, y) = Mpixel(imgOri, x-1, y-1);
-            }
-            matrixA[x + y * width] = -1;
-            //if(x==100 && y== 101 )
-            //    cout<<"x + y * width= "<<x<<" + "<<y<<" * "<<width<<" = "<<matrixA[x + y * width]<<endl;
-
+            matrixA[ x + y * width] = -1;
         }
-
-    namedWindow("Step4: ImageWithBoundary", 0);
-	imshow("Step4: ImageWithBoundary", imgBoundry);
-
+    }
     /************************************************************************
     *
     * The implementation of object labeling algorithm using 4-adjacency
@@ -307,16 +291,13 @@ int count_object(Mat imgOri)
     {
         for(int x=1; x<width; x++)
         {
-            if((int)Mpixel(imgBoundry, x, y)  != 0)
+            if((int)Mpixel(imgOri, x, y)  != 0)
             {
-                if(Mpixel(imgBoundry, x-1, y) != 0 || Mpixel(imgBoundry, x, y-1) != 0)
+                if((int)Mpixel(imgOri, x-1, y) != 0 || (int)Mpixel(imgOri, x, y-1) != 0)
                 {
-                    //cout<<"------"<<matrixA[216266]<<endl;
                     s1 = matrixA[(x - 1) + (y * width)];
                     s2 = matrixA[x +  ((y - 1) * width)];
 
-                    cout<<"s1 = x - 1 + y * width ="<<x<<" + "<<y<<" * "<<width<<" = "<<(x - 1) + (y * width) << " , s1="<< *(matrixA +(x-1)+(y*width))<<endl;
-                    //cout<<"s2 = x + (y - 1) * width"<<x<<" + "<<y<<" * "<<width<<" = "<<matrixA[x +  ((y - 1) * width)]<< " , s2="<<s2<<endl;
 
                     if(s1 != -1)
                     {
@@ -345,15 +326,17 @@ int count_object(Mat imgOri)
                         pset = NULL;
                     }
                 }
+                else
+                {
+                    counter++;
+                    point_set setofobj;
+
+                    setofobj.insert(CPoint(x, y));
+                    vec.push_back(setofobj);
+                    matrixA[x + y * width] = counter;
+                }
             }
-            else
-            {
-                counter++;
-                point_set setofobj;
-                setofobj.insert(CPoint(x, y));
-                vec.push_back(setofobj);
-                matrixA[x + y * imgBoundry.cols] = counter;
-            }
+
         }
     }
     free(matrixA);
@@ -370,7 +353,7 @@ int count_object(Mat imgOri)
         {
             point_set poset = *it;
             //cout<<"the numbers of points in poset: "<<poset.size()<<endl;
-            if(!poset.empty() && poset.size() > 30)
+            if(!poset.empty())
                 num++;
         }
     }
