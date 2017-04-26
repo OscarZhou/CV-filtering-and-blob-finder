@@ -119,9 +119,8 @@ int main(int argc, char** argv)
     cout<<"the number is "<<num<<endl;
 
     char printit[100];
-    sprintf(printit,"%d",num);
+    sprintf(printit,"the number of objects is %d",num);
     putText(imgMedianFilter2, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
-
 
     clockEnd = clock();
     printf("the prgram runs %ld ms\n", clockEnd - clockBegin);
@@ -355,22 +354,39 @@ int count_object(Mat imgOri)
     free(matrixA);
     /************************************************************************
     *
-    * count the number of valid set, that is, the number of objects
+    * count the number of valid set, that is, the number of objects and color objects
     *
     *************************************************************************/
     int num = 0;
+
+    Mat imgColored;
+    imgColored.create(imgOri.size(), CV_8UC3);
     if(!vec.empty())
     {
-        cout<<"vec.empty "<<vec.empty()<<endl;
         for(set_vector::iterator it=vec.begin(); it!=vec.end(); it++)
         {
             point_set poset = *it;
-            //cout<<"the numbers of points in poset: "<<poset.size()<<endl;
             if(!poset.empty() && poset.size()>20) // size>20 is for increasing the accuracy
+            {
                 num++;
-        }
-    }
+                int RGB[3] = {rand()%255, rand()%255, rand()%255};
+                for(point_set::iterator it= poset.begin(); it!=poset.end(); it++)
+                {
+                    // The reason about the operation of (x-1) is that
+                    // the position of the points recorded in sets is one row and one column more
+                    int x = ((CPoint)*it).x-1;
+                    int y = ((CPoint)*it).y-1;
 
+                    MpixelR(imgColored, x, y) = RGB[0];
+                    MpixelG(imgColored, x, y) = RGB[1];
+                    MpixelB(imgColored, x, y) = RGB[2];
+                }
+            }
+        }
+        namedWindow("Step5: ColoredImage", 1);
+        imshow("Step5: ColoredImage", imgColored);
+
+    }
 
 	return num;
 }
