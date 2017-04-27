@@ -94,7 +94,8 @@ typedef std::vector<point_set> set_vector;
 *************************************************************************/
 Mat do_median_filter(Mat imgOri);
 Mat do_threshold_filter(Mat imgOri, int flag);
-int count_object(Mat imgOri);
+std::vector<int> count_object(Mat imgOri, int* number, int* cnt);
+Mat color_object(Mat imgOri, std::vector<int> matrixA, int counter);
 
 int main(int argc, char** argv)
 {
@@ -121,9 +122,21 @@ int main(int argc, char** argv)
     //namedWindow("Step4: SecondMedianFilterImage", 0);
     //Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
 	//imshow("Step4: SecondMedianFilterImage", imgMedianFilter2);
-
-    int num = count_object(imgThresholdFilter);
+    int num = 0;
+    int counter = -1;
+    std::vector<int> A = count_object(imgThresholdFilter, &num, &counter);
     cout<<"the number is "<<num<<endl;
+
+
+
+    namedWindow("Step5: ColoredImage", 0);
+    Mat imgColored = color_object(imgThresholdFilter, A, counter);
+    char printit[100];
+    sprintf(printit," %d",num);
+    putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+
+    imshow("Step5: ColoredImage", imgColored);
+
 
 
     clockEnd = clock();
@@ -291,7 +304,7 @@ Mat do_threshold_filter(Mat imgOri, int flag)
 * imgOri : input image with salt and pepper
 *
 *************************************************************************/
-int count_object(Mat imgOri)
+std::vector<int> count_object(Mat imgOri, int* number, int* cnt)
 {
     // Store all the sets which stand for the object
     set_vector vec;
@@ -299,16 +312,9 @@ int count_object(Mat imgOri)
 
     int width = imgOri.cols;
     int height = imgOri.rows;
-    int* matrixA = new int[width * height];
-    //memset(matrixA, -1, sizeof((*matrixA)));
 
-    for(int y=0; y< height; y++)
-    {
-        for(int x=0; x<width; x++)
-        {
-            matrixA[ x + y * width] = -1;
-        }
-    }
+    std::vector<int> matrixA;
+    matrixA.assign(width*height, -1);
 
     /************************************************************************
     *
@@ -386,16 +392,28 @@ int count_object(Mat imgOri)
             }
         }
     }
-    RGB* pRGB = new RGB[counter];
+    *number = num;
+    *cnt = counter;
+    return matrixA;
+
+}
+
+Mat color_object(Mat imgOri, std::vector<int> matrixA, int counter)
+{
+    std::vector<RGB> pRGB;
     for(int i=0; i<counter; i++)
     {
-        pRGB[i].r = rand()%255;
-        pRGB[i].g = rand()%255;
-        pRGB[i].b = rand()%255;
+        RGB srgb;
+        srgb.r = rand()%255;
+        srgb.g = rand()%255;
+        srgb.b = rand()%255;
+        pRGB.push_back(srgb);
     }
 
     Mat imgColored;
     imgColored.create(imgOri.size(), CV_8UC3);
+    int width = imgOri.cols;
+    int height = imgOri.rows;
     for(int y=1; y<height; y++)
     {
         for(int x=1; x<width; x++)
@@ -415,15 +433,5 @@ int count_object(Mat imgOri)
             }
         }
     }
-    free(pRGB);
-    free(matrixA);
-    namedWindow("Step5: ColoredImage", 0);
-    char printit[100];
-    sprintf(printit," %d",num);
-    putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
-
-    imshow("Step5: ColoredImage", imgColored);
-	return num;
+    return imgColored;
 }
-
-
