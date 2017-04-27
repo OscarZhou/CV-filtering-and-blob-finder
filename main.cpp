@@ -1,18 +1,17 @@
 #include <iostream>
 #include <time.h>
+#include <ctime>
+#include <chrono>
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
-
 #include <vector>
 #include <set>
 
-
 using namespace std;
 using namespace cv;
-
+using namespace chrono;
 
 #define Mpixel(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)]
-
 #define MpixelB(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)*((image).channels())]
 #define MpixelG(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)*((image).channels())+1]
 #define MpixelR(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)*((image).channels())+2]
@@ -96,46 +95,90 @@ Mat do_median_filter(Mat imgOri);
 Mat do_threshold_filter(Mat imgOri, int flag);
 Mat count_object(Mat imgOri, int* number);
 
+/*********************************************************************************************
+ * Compile with:
+ * g++ -std=c++0x -o main -O3 main.cpp `pkg-config --libs --cflags opencv`
+ * Execute webcam code:
+ * ./main
+ * Execute static code: for example
+ * ./main ~/Downloads/saltandpepper_3.jpg
+*********************************************************************************************/
+
+Mat frame, outframe;
 int main(int argc, char** argv)
 {
 
     clock_t  clockBegin, clockEnd;
     clockBegin = clock();
-    if(argc!=2) {
-        cout<<"needs 2 argument, e.g.image.jpg"<<endl;
-        exit(0);
+    if(argc != 2) {
+        cout<<"-----------start up the webcam!-----------"<<endl;
+        VideoCapture cap;
+        cap.open(0);
+        if(!cap.isOpened())
+        {
+            cout<< "Failed to open camera!"<<endl;
+            return 0;
+        }
+        cout<< "Opened camera"<<endl;
+        namedWindow("WebCam", 1);
+        namedWindow("WebCam with objects", 1);
+        cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
+        cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
+        cap>>frame;
+        printf("frame size %d %d \n",frame.rows, frame.cols);
+        int key = 0;
+        double fps = 0.0;
+        int num = 0;
+
+        while(1){
+            system_clock::time_point start = system_clock::now();
+            cap>>frame;
+            if(frame.empty())
+                break;
+
+            cvtColor(frame, outframe, CV_BGR2GRAY);
+            Mat imgMedianFilter = do_median_filter(outframe);
+            Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
+            Mat imgColored = count_object(imgThresholdFilter, &num);
+
+            key = waitKey(1);
+            if(key == 113 || key == 27) return 0;
+
+            system_clock::time_point end = system_clock::now();
+            double seconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+            fps = 1000000/seconds;
+            cout << "frames " << fps << " seconds " << seconds << endl;
+
+            char printit[100];
+            sprintf(printit,"frame %2.1f\n\robject %d", fps, num);
+            putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,0), 2, 8);
+            imshow("WebCame", frame);
+            imshow("WebCam with objects", imgColored);
+        }
 	}
+	else if(argc == 2){
+        cout<<"-----------start up static code-----------"<<endl;
+        namedWindow("Step1: OriginalImage", 0);
+        Mat imgOri = imread(argv[1], IMREAD_GRAYSCALE);
+        imshow("Step1: OriginalImage", imgOri);
 
-    namedWindow("Step1: OriginalImage", 0);
-    Mat imgOri = imread(argv[1], IMREAD_GRAYSCALE);
-	imshow("Step1: OriginalImage", imgOri);
+        namedWindow("Step2: MedianFilterImage", 0);
+        Mat imgMedianFilter = do_median_filter(imgOri);
+        imshow("Step2: MedianFilterImage", imgMedianFilter);
 
-    namedWindow("Step2: MedianFilterImage", 0);
-    Mat imgMedianFilter = do_median_filter(imgOri);
-	imshow("Step2: MedianFilterImage", imgMedianFilter);
+        namedWindow("Step3: ThresholdFilterImage", 0);
+        Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
+        imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
 
-    namedWindow("Step3: ThresholdFilterImage", 0);
-    Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
-	imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
-
-    //namedWindow("Step4: SecondMedianFilterImage", 0);
-    //Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
-	//imshow("Step4: SecondMedianFilterImage", imgMedianFilter2);
-    int num = 0;
-
-
-
-    namedWindow("Step5: ColoredImage", 0);
-    Mat imgColored = count_object(imgThresholdFilter, &num);
-
-    cout<<"the number is "<<num<<endl;
-    char printit[100];
-    sprintf(printit," %d",num);
-    putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
-
-    imshow("Step5: ColoredImage", imgColored);
-
-
+        int num = 0;
+        namedWindow("Step4: ColoredImage", 0);
+        Mat imgColored = count_object(imgThresholdFilter, &num);
+        cout<<"the number is "<<num<<endl;
+        char printit[100];
+        sprintf(printit," %d",num);
+        putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+        imshow("Step4: ColoredImage", imgColored);
+	}
 
     clockEnd = clock();
     printf("the prgram runs %ld ms\n", clockEnd - clockBegin);
@@ -311,9 +354,16 @@ Mat count_object(Mat imgOri, int* number)
     int width = imgOri.cols;
     int height = imgOri.rows;
 
-    std::vector<int> matrixA;
-    matrixA.assign(width*height, -1);
-
+    //std::vector<int> matrixA;
+    //matrixA.assign(width * height, -1);
+    int* matrixA = new int[width* height];
+    for(int y=0; y<height; y++)
+    {
+        for(int x=0; x<width; x++)
+        {
+            matrixA[x+ y *width] = -1;
+        }
+    }
     /************************************************************************
     *
     * The implementation of object labeling algorithm using 4-adjacency
@@ -423,6 +473,7 @@ Mat count_object(Mat imgOri, int* number)
             }
         }
     }
+    delete(matrixA);
     return imgColored;
 
 }
