@@ -111,16 +111,16 @@ int main(int argc, char** argv)
     Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
 	imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
 
-    namedWindow("Step4: SecondMedianFilterImage", 0);
-    Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
-	imshow("Step4: SecondMedianFilterImage", imgMedianFilter2);
+    //namedWindow("Step4: SecondMedianFilterImage", 0);
+    //Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
+	//imshow("Step4: SecondMedianFilterImage", imgMedianFilter2);
 
-    int num = count_object(imgMedianFilter2);
+    int num = count_object(imgThresholdFilter);
     cout<<"the number is "<<num<<endl;
 
     char printit[100];
     sprintf(printit,"the number of objects is %d",num);
-    putText(imgMedianFilter2, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+    putText(imgThresholdFilter, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
 
     clockEnd = clock();
     printf("the prgram runs %ld ms\n", clockEnd - clockBegin);
@@ -130,14 +130,27 @@ int main(int argc, char** argv)
 
 /************************************************************************
 *
-* The compartor, define the rules to compare the value in qsort
+* The function of sorting mask
 * Parameter description:
 * a: value1, b: value2
 *
 *************************************************************************/
-int compare_for_median(const void * a, const void * b)
+inline void bubbleSort(int data[], int size)
 {
-    return ( *(int*)a - *(int*)b );
+    int temp;
+    while(size > 1)
+    {
+        for(int i=0; i<size-1; i++)
+        {
+            if(data[i] > data[i + 1])
+            {
+                temp = data[i];
+                data[i] = data[i + 1];
+                data[i + 1] = temp;
+            }
+        }
+        size--;
+    }
 }
 
 /************************************************************************
@@ -233,7 +246,7 @@ Mat do_median_filter(Mat imgOri)
             pMask[7] = Mpixel(imgExtension, x, y+1);
             pMask[8] = Mpixel(imgExtension, x+1, y+1);
 
-            qsort(pMask, 9, sizeof(int), compare_for_median);
+            bubbleSort(pMask, 9);
 
             // The important part. Improve the accuracy
             //if(pMask[4]<30)
@@ -325,17 +338,18 @@ int count_object(Mat imgOri)
 
                     if((s1 != s2) && (s1 != -1) && (s2 != -1))
                     {
-                        point_set* pset = &vec[s2];
-
-                        for(point_set::iterator it=pset->begin(); it!=pset->end(); it++)
+                        point_set* pset2 = &vec[s2];
+                        point_set* pset1 = &vec[s1];
+                        for(point_set::iterator it=pset2->begin(); it!=pset2->end(); it++)
                         {
-                           //((point_set)vec[s1]).insert(*it);
+                            //((point_set)vec[s1]).insert(*it);
+                            pset1->insert(*it);
                             matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s1;
                         }
 
-                        ((point_set)vec[s1]).insert(pset->begin(), pset->end());
-                        pset->clear();
-                        pset = NULL;
+                        pset1->insert(pset2->begin(), pset2->end());
+                        pset2->clear();
+                        pset2 = NULL;
                     }
                 }
                 else
@@ -351,6 +365,7 @@ int count_object(Mat imgOri)
 
         }
     }
+
     free(matrixA);
     /************************************************************************
     *
@@ -361,6 +376,20 @@ int count_object(Mat imgOri)
 
     Mat imgColored;
     imgColored.create(imgOri.size(), CV_8UC3);
+    for(int y=0; y<imgOri.rows; y++)
+    {
+        for(int x=0; x<imgOri.cols; x++)
+        {
+            if(matrixA[x + y* width] != -1)
+            {
+                MpixelR(imgColored, x, y) = Mpixel(imgOri, x, y);
+                MpixelG(imgColored, x, y) = Mpixel(imgOri, x, y);
+                MpixelB(imgColored, x, y) = Mpixel(imgOri, x, y);
+            }
+
+        }
+    }
+
     if(!vec.empty())
     {
         for(set_vector::iterator it=vec.begin(); it!=vec.end(); it++)
@@ -372,10 +401,10 @@ int count_object(Mat imgOri)
                 int RGB[3] = {rand()%255, rand()%255, rand()%255};
                 for(point_set::iterator it= poset.begin(); it!=poset.end(); it++)
                 {
-                    // The reason about the operation of (x-1) is that
-                    // the position of the points recorded in sets is one row and one column more
-                    int x = ((CPoint)*it).x-1;
-                    int y = ((CPoint)*it).y-1;
+                    int x = ((CPoint)*it).x;
+                    int y = ((CPoint)*it).y;
+
+                    //if(x==0 || y==0) continue;
 
                     MpixelR(imgColored, x, y) = RGB[0];
                     MpixelG(imgColored, x, y) = RGB[1];
@@ -383,11 +412,16 @@ int count_object(Mat imgOri)
                 }
             }
         }
-        namedWindow("Step5: ColoredImage", 1);
+        char printit[100];
+        sprintf(printit,"the number of objects is %d", num);
+        putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+
+        namedWindow("Step5: ColoredImage", 0);
         imshow("Step5: ColoredImage", imgColored);
 
     }
 
 	return num;
 }
+
 
