@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 inline void bubbleSort(int data[], int size)
 {
     int temp;
-    while(size > 1)
+    while(size > size/2)
     {
         for(int i=0; i<size-1; i++)
         {
