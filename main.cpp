@@ -77,8 +77,15 @@ bool CPoint::operator< (const CPoint& pt) const
     }
 };
 
+struct RGB
+{
+    int r;
+    int g;
+    int b;
+}triRGB;
+
 typedef std::set<CPoint> point_set;
-typedef vector<point_set> set_vector;
+typedef std::vector<point_set> set_vector;
 
 /************************************************************************
 *
@@ -296,7 +303,7 @@ int count_object(Mat imgOri)
     int width = imgOri.cols;
     int height = imgOri.rows;
     int* matrixA = new int[width * height];
-    //memset(matrixA, -1, width * height);
+    //memset(matrixA, -1, sizeof((*matrixA)));
 
     for(int y=0; y< height; y++)
     {
@@ -305,6 +312,7 @@ int count_object(Mat imgOri)
             matrixA[ x + y * width] = -1;
         }
     }
+
     /************************************************************************
     *
     * The implementation of object labeling algorithm using 4-adjacency
@@ -342,8 +350,6 @@ int count_object(Mat imgOri)
                         point_set* pset1 = &vec[s1];
                         for(point_set::iterator it=pset2->begin(); it!=pset2->end(); it++)
                         {
-                            //((point_set)vec[s1]).insert(*it);
-                            pset1->insert(*it);
                             matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s1;
                         }
 
@@ -359,36 +365,19 @@ int count_object(Mat imgOri)
 
                     setofobj.insert(CPoint(x, y));
                     vec.push_back(setofobj);
-                    matrixA[x + y * width] = counter;
+                    matrixA[x + y * width] = counter;;
                 }
             }
 
         }
     }
 
-    free(matrixA);
     /************************************************************************
     *
     * count the number of valid set, that is, the number of objects and color objects
     *
     *************************************************************************/
     int num = 0;
-
-    Mat imgColored;
-    imgColored.create(imgOri.size(), CV_8UC3);
-    for(int y=0; y<imgOri.rows; y++)
-    {
-        for(int x=0; x<imgOri.cols; x++)
-        {
-            if(matrixA[x + y* width] != -1)
-            {
-                MpixelR(imgColored, x, y) = Mpixel(imgOri, x, y);
-                MpixelG(imgColored, x, y) = Mpixel(imgOri, x, y);
-                MpixelB(imgColored, x, y) = Mpixel(imgOri, x, y);
-            }
-
-        }
-    }
 
     if(!vec.empty())
     {
@@ -398,29 +387,44 @@ int count_object(Mat imgOri)
             if(!poset.empty() && poset.size()>20) // size>20 is for increasing the accuracy
             {
                 num++;
-                int RGB[3] = {rand()%255, rand()%255, rand()%255};
-                for(point_set::iterator it= poset.begin(); it!=poset.end(); it++)
-                {
-                    int x = ((CPoint)*it).x;
-                    int y = ((CPoint)*it).y;
-
-                    //if(x==0 || y==0) continue;
-
-                    MpixelR(imgColored, x, y) = RGB[0];
-                    MpixelG(imgColored, x, y) = RGB[1];
-                    MpixelB(imgColored, x, y) = RGB[2];
-                }
             }
         }
-        char printit[100];
-        sprintf(printit,"the number of objects is %d", num);
-        putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
-
-        namedWindow("Step5: ColoredImage", 0);
-        imshow("Step5: ColoredImage", imgColored);
 
     }
 
+    RGB* pRGB = new RGB[num];
+    for(int i=0; i<num; i++)
+    {
+        pRGB[i].r = rand()%255;
+        pRGB[i].g = rand()%255;
+        pRGB[i].b = rand()%255;
+    }
+
+    Mat imgColored;
+    imgColored.create(imgOri.size(), CV_8UC3);
+    for(int y=1; y<height; y++)
+    {
+        for(int x=1; x<width; x++)
+        {
+            int index = x + y * width;
+            if(matrixA[index] == -1)
+            {
+                MpixelR(imgColored, x, y) = Mpixel(imgOri, x, y);
+                MpixelG(imgColored, x, y) = Mpixel(imgOri, x, y);
+                MpixelB(imgColored, x, y) = Mpixel(imgOri, x, y);
+            }
+            else
+            {
+                MpixelR(imgColored, x, y) = pRGB[matrixA[index]].r;
+                MpixelG(imgColored, x, y) = pRGB[matrixA[index]].g;
+                MpixelB(imgColored, x, y) = pRGB[matrixA[index]].b;
+            }
+        }
+    }
+    free(pRGB);
+    free(matrixA);
+    namedWindow("Step5: ColoredImage", 0);
+    imshow("Step5: ColoredImage", imgColored);
 	return num;
 }
 
