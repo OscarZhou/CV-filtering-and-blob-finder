@@ -82,7 +82,7 @@ struct RGB
     int r;
     int g;
     int b;
-}triRGB;
+};
 
 typedef std::set<CPoint> point_set;
 typedef std::vector<point_set> set_vector;
@@ -125,9 +125,6 @@ int main(int argc, char** argv)
     int num = count_object(imgThresholdFilter);
     cout<<"the number is "<<num<<endl;
 
-    char printit[100];
-    sprintf(printit,"the number of objects is %d",num);
-    putText(imgThresholdFilter, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
 
     clockEnd = clock();
     printf("the prgram runs %ld ms\n", clockEnd - clockBegin);
@@ -378,7 +375,6 @@ int count_object(Mat imgOri)
     *
     *************************************************************************/
     int num = 0;
-
     if(!vec.empty())
     {
         for(set_vector::iterator it=vec.begin(); it!=vec.end(); it++)
@@ -389,11 +385,9 @@ int count_object(Mat imgOri)
                 num++;
             }
         }
-
     }
-
-    RGB* pRGB = new RGB[num];
-    for(int i=0; i<num; i++)
+    RGB* pRGB = new RGB[counter];
+    for(int i=0; i<counter; i++)
     {
         pRGB[i].r = rand()%255;
         pRGB[i].g = rand()%255;
@@ -406,8 +400,8 @@ int count_object(Mat imgOri)
     {
         for(int x=1; x<width; x++)
         {
-            int index = x + y * width;
-            if(matrixA[index] == -1)
+            int index = matrixA[x + y * width];
+            if(index == -1)
             {
                 MpixelR(imgColored, x, y) = Mpixel(imgOri, x, y);
                 MpixelG(imgColored, x, y) = Mpixel(imgOri, x, y);
@@ -415,15 +409,19 @@ int count_object(Mat imgOri)
             }
             else
             {
-                MpixelR(imgColored, x, y) = pRGB[matrixA[index]].r;
-                MpixelG(imgColored, x, y) = pRGB[matrixA[index]].g;
-                MpixelB(imgColored, x, y) = pRGB[matrixA[index]].b;
+                MpixelR(imgColored, x, y) = pRGB[index].r;
+                MpixelG(imgColored, x, y) = pRGB[index].g;
+                MpixelB(imgColored, x, y) = pRGB[index].b;
             }
         }
     }
     free(pRGB);
     free(matrixA);
     namedWindow("Step5: ColoredImage", 0);
+    char printit[100];
+    sprintf(printit," %d",num);
+    putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+
     imshow("Step5: ColoredImage", imgColored);
 	return num;
 }
