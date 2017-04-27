@@ -114,7 +114,7 @@ int main(int argc, char** argv)
      }
     cout << "Opened camera" << endl;
     namedWindow("WebCam", 1);
-    namedWindow("color", 1);
+    //namedWindow("color", 1);
 
     cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
     //   cap.set(CV_CAP_PROP_FRAME_WIDTH, 960);
@@ -130,17 +130,20 @@ int main(int argc, char** argv)
     int num = 0;
     int cnt = -1;
     std::vector<int> A;
+    Mat frame1;
+
     while (1){
      system_clock::time_point start = system_clock::now();
      //for(int a=0;a<10;a++){
        cap >> frame;
        if( frame.empty() )
        break;
-
-        Mat imgMedianFilter = do_median_filter(frame);
+        cvtColor(frame, frame1, CV_BGR2GRAY);
+        Mat imgMedianFilter = do_median_filter(frame1);
         Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
 
        //num = count_object1(imgMedianFilter);
+       /*
        A =  count_object(imgMedianFilter, &num, &cnt);
        imgColor =  color_object(imgMedianFilter, A, cnt);
 
@@ -150,6 +153,9 @@ int main(int argc, char** argv)
 
 
        imshow("color", imgColor);
+        */
+
+        num = count_object1(imgThresholdFilter);
 
        key=waitKey(1);
        if(key==113 || key==27) return 0;//either esc or 'q'
@@ -161,8 +167,11 @@ int main(int argc, char** argv)
 
        fps = 1000000/seconds;
        cout << "frames " << fps << " seconds " << seconds << endl;
+        char printit[100];
+       sprintf(printit," frame = %2.1f \n blob = %d", fps, num);
+       putText(frame1, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
 
-       imshow("WebCam", frame);
+       imshow("WebCam", frame1);
     }
 
 
