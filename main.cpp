@@ -94,8 +94,7 @@ typedef std::vector<point_set> set_vector;
 *************************************************************************/
 Mat do_median_filter(Mat imgOri);
 Mat do_threshold_filter(Mat imgOri, int flag);
-std::vector<int> count_object(Mat imgOri, int* number, int* cnt);
-Mat color_object(Mat imgOri, std::vector<int> matrixA, int counter);
+Mat count_object(Mat imgOri, int* number);
 
 int main(int argc, char** argv)
 {
@@ -123,14 +122,13 @@ int main(int argc, char** argv)
     //Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
 	//imshow("Step4: SecondMedianFilterImage", imgMedianFilter2);
     int num = 0;
-    int counter = -1;
-    std::vector<int> A = count_object(imgThresholdFilter, &num, &counter);
-    cout<<"the number is "<<num<<endl;
 
 
 
     namedWindow("Step5: ColoredImage", 0);
-    Mat imgColored = color_object(imgThresholdFilter, A, counter);
+    Mat imgColored = count_object(imgThresholdFilter, &num);
+
+    cout<<"the number is "<<num<<endl;
     char printit[100];
     sprintf(printit," %d",num);
     putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
@@ -304,7 +302,7 @@ Mat do_threshold_filter(Mat imgOri, int flag)
 * imgOri : input image with salt and pepper
 *
 *************************************************************************/
-std::vector<int> count_object(Mat imgOri, int* number, int* cnt)
+Mat count_object(Mat imgOri, int* number)
 {
     // Store all the sets which stand for the object
     set_vector vec;
@@ -393,13 +391,7 @@ std::vector<int> count_object(Mat imgOri, int* number, int* cnt)
         }
     }
     *number = num;
-    *cnt = counter;
-    return matrixA;
 
-}
-
-Mat color_object(Mat imgOri, std::vector<int> matrixA, int counter)
-{
     std::vector<RGB> pRGB;
     for(int i=0; i<counter; i++)
     {
@@ -412,8 +404,6 @@ Mat color_object(Mat imgOri, std::vector<int> matrixA, int counter)
 
     Mat imgColored;
     imgColored.create(imgOri.size(), CV_8UC3);
-    int width = imgOri.cols;
-    int height = imgOri.rows;
     for(int y=1; y<height; y++)
     {
         for(int x=1; x<width; x++)
@@ -434,4 +424,5 @@ Mat color_object(Mat imgOri, std::vector<int> matrixA, int counter)
         }
     }
     return imgColored;
+
 }
