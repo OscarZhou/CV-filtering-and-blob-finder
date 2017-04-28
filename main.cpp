@@ -53,30 +53,11 @@ CPoint::CPoint(int x, int y)
 
 bool CPoint::operator< (const CPoint& pt) const
 {
-   if(this->x < pt.x)
+
+    if(this->x < pt.x)
     {
         return true;
     }
-    /*
-    else if(this->x == pt.x)
-    {
-        if(this->y < pt.y)
-        {
-            return true;
-        }
-        else if(this->y == pt.y)
-        {
-            return false;
-        }
-        else{
-            return false;
-        }
-    }
-    else
-    {
-        return false;
-    }
-    */
     return false;
 };
 
@@ -96,9 +77,8 @@ typedef std::vector<point_set> set_vector;
 *
 *************************************************************************/
 Mat do_median_filter(Mat imgOri);
-Mat do_smoothing(Mat imgOri);
 Mat do_threshold_filter(Mat imgOri, int flag);
-Mat count_object(Mat imgOri, int* number);
+Mat count_object(Mat imgOri, int* number, int flag);
 
 /*********************************************************************************************
  * Compile with:
@@ -112,7 +92,6 @@ Mat count_object(Mat imgOri, int* number);
 Mat frame, outframe;
 int main(int argc, char** argv)
 {
-
     clock_t  clockBegin, clockEnd;
     clockBegin = clock();
     if(argc != 2) {
@@ -143,10 +122,8 @@ int main(int argc, char** argv)
 
             cvtColor(frame, outframe, CV_BGR2GRAY);
             Mat imgMedianFilter = do_median_filter(outframe);
-            Mat imgSmoothing, imgLaplacian;
-            GaussianBlur(imgMedianFilter, imgSmoothing, cv::Size(0, 0), 3);
             Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 0);
-            Mat imgColored = count_object(imgThresholdFilter, &num);
+            Mat imgColored = count_object(imgThresholdFilter, &num, 0);
 
             key = waitKey(1);
             if(key == 113 || key == 27) return 0;
@@ -157,7 +134,7 @@ int main(int argc, char** argv)
             cout << "frames " << fps << " seconds " << seconds << endl;
 
             char printit[100];
-            sprintf(printit,"frame %2.1f\n\robject %d", fps, num);
+            sprintf(printit,"frame %2.1f, object %d", fps, num);
             putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,0), 2, 8);
             imshow("WebCame", frame);
             imshow("WebCam with objects", imgColored);
@@ -171,26 +148,29 @@ int main(int argc, char** argv)
 
         namedWindow("Step2: MedianFilterImage", 0);
         Mat imgMedianFilter = do_median_filter(imgOri);
-        Mat imgSmoothing, imgLaplacian;
-        GaussianBlur(imgMedianFilter, imgSmoothing, cv::Size(0, 0), 3);
-        //cvtColor(imgOri, imgSmoothing, CV_BGR2GRAY);
-        //Laplacian(imgSmoothing, imgLaplacian, CV_16S, 3);
+        imshow("Step2: MedianFilterImage", imgMedianFilter);
 
-        imshow("Step2: MedianFilterImage", imgSmoothing);
+        namedWindow("Step3: GaussianBlurImage", 0);
+        Mat imgGaus;
+        GaussianBlur(imgMedianFilter, imgGaus, cv::Size(0, 0), 5, 5);
+        imshow("Step3: GaussianBlurImage", imgGaus);
 
-        namedWindow("Step3: ThresholdFilterImage", 0);
-        Mat imgThresholdFilter = do_threshold_filter(imgSmoothing, 1);
-        imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
+        namedWindow("Step4: ThresholdFilterImage", 0);
+        Mat imgThresholdFilter = do_threshold_filter(imgGaus, 0);
+        imshow("Step4: ThresholdFilterImage", imgThresholdFilter);
 
+        namedWindow("Step5: MedianFilterImage", 0);
         Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
+        imshow("Step5: MedianFilterImage", imgMedianFilter2);
+
         int num = 0;
-        namedWindow("Step4: ColoredImage", 0);
-        Mat imgColored = count_object(imgMedianFilter2, &num);
+        namedWindow("Step6: ColoredImage", 0);
+        Mat imgColored = count_object(imgMedianFilter2, &num, 0);
         cout<<"the number is "<<num<<endl;
         char printit[100];
         sprintf(printit," %d",num);
         putText(imgColored, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
-        imshow("Step4: ColoredImage", imgColored);
+        imshow("Step6: ColoredImage", imgColored);
 	}
 
     clockEnd = clock();
@@ -203,8 +183,8 @@ int main(int argc, char** argv)
 *
 * The function of sorting mask
 * Parameter description:
-* a: value1, b: value2
-*
+* data: the array to be processed
+* size: the size of data
 *************************************************************************/
 inline void bubbleSort(int data[], int size)
 {
@@ -223,10 +203,10 @@ inline void bubbleSort(int data[], int size)
         size--;
     }
 }
-
 /************************************************************************
 *
 * The impletation of median filter
+*
 * Parameter description:
 * imgOri : input image with salt and pepper
 *
@@ -320,7 +300,7 @@ Mat do_median_filter(Mat imgOri)
             bubbleSort(pMask, 9);
 
             // The important part. Improve the accuracy
-            //if(pMask[4]<30)
+            //if(pMask[4] < 30)
             //    Mpixel(imgPcd, x-1, y-1) = 0;
             //else
                 Mpixel(imgPcd, x-1, y-1) = pMask[4];
@@ -331,6 +311,7 @@ Mat do_median_filter(Mat imgOri)
 *
 * The impletation of threshold filter
 * Parameter description:
+*
 * imgOri : input image
 * flag: 0, Otsu method  1, normal method
 *
@@ -354,10 +335,12 @@ Mat do_threshold_filter(Mat imgOri, int flag)
 *
 * The impletation of blob algorithm
 * Parameter description:
-* imgOri : input image with salt and pepper
 *
+* imgOri : input image with salt and pepper
+* number : output parameter, the number of objects
+* flag : 0: color image; 1: grey image
 *************************************************************************/
-Mat count_object(Mat imgOri, int* number)
+Mat count_object(Mat imgOri, int* number, int flag)
 {
     // Store all the sets which stand for the object
     set_vector vec;
@@ -368,16 +351,6 @@ Mat count_object(Mat imgOri, int* number)
 
     std::vector<int> matrixA;
     matrixA.assign(width * height, -1);
-    /*
-    int* matrixA = new int[width* height];
-    for(int y=0; y<height; y++)
-    {
-        for(int x=0; x<width; x++)
-        {
-            matrixA[x+ y *width] = -1;
-        }
-    }
-    */
     /************************************************************************
     *
     * The implementation of object labeling algorithm using 4-adjacency
@@ -413,26 +386,26 @@ Mat count_object(Mat imgOri, int* number)
                     {
                         point_set* pset2 = &vec[s2];
                         point_set* pset1 = &vec[s1];
-                        if(pset2->size()< pset1->size())
+
+                        if(pset2->size() < pset1->size())
                         {
                             for(point_set::iterator it=pset2->begin(); it!=pset2->end(); it++)
                             {
-                                //pset1->insert(*it);
                                 matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s1;
                             }
                             pset1->insert(pset2->begin(), pset2->end());
+                            pset2->clear();
+                            pset2 = NULL;
                         }
                         else{
                             for(point_set::iterator it=pset1->begin(); it!=pset1->end(); it++)
                             {
-                                //pset1->insert(*it);
                                 matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s2;
                             }
                             pset2->insert(pset1->begin(), pset1->end());
+                            pset1->clear();
+                            pset1 = NULL;
                         }
-
-                        pset2->clear();
-                        pset2 = NULL;
                     }
                 }
                 else
@@ -445,7 +418,6 @@ Mat count_object(Mat imgOri, int* number)
                     matrixA[index] = counter;;
                 }
             }
-
         }
     }
 
@@ -455,13 +427,12 @@ Mat count_object(Mat imgOri, int* number)
     *
     *************************************************************************/
     int num = 0;
-
     if(!vec.empty())
     {
         for(set_vector::iterator it=vec.begin(); it!=vec.end(); it++)
         {
             point_set poset = *it;
-            if(!poset.empty() && poset.size()>20) // size>20 is for increasing the accuracy
+            if(!poset.empty())
             {
                 num++;
             }
@@ -470,39 +441,44 @@ Mat count_object(Mat imgOri, int* number)
 
     *number = num;
 
-    std::vector<RGB> pRGB;
-    for(int i=0; i<counter; i++)
-    {
-        RGB srgb;
-        srgb.r = rand()%255;
-        srgb.g = rand()%255;
-        srgb.b = rand()%255;
-        pRGB.push_back(srgb);
-    }
-
+    vec.clear();
     Mat imgColored;
-    imgColored.create(imgOri.size(), CV_8UC3);
-    for(int y=1; y<height; y++)
+    if(flag == 0)
     {
-        for(int x=1; x<width; x++)
+        std::vector<RGB> pRGB;
+        for(int i=0; i<counter; i++)
         {
-            int index = matrixA[x + y * width];
-            if(index == -1)
+            RGB srgb;
+            srgb.r = rand()%255;
+            srgb.g = rand()%255;
+            srgb.b = rand()%255;
+            pRGB.push_back(srgb);
+        }
+
+        imgColored.create(imgOri.size(), CV_8UC3);
+        for(int y=1; y<height; y++)
+        {
+            for(int x=1; x<width; x++)
             {
-                MpixelR(imgColored, x, y) = Mpixel(imgOri, x, y);
-                MpixelG(imgColored, x, y) = Mpixel(imgOri, x, y);
-                MpixelB(imgColored, x, y) = Mpixel(imgOri, x, y);
-            }
-            else
-            {
-                MpixelR(imgColored, x, y) = pRGB[index].r;
-                MpixelG(imgColored, x, y) = pRGB[index].g;
-                MpixelB(imgColored, x, y) = pRGB[index].b;
+                int index = matrixA[x + y * width];
+                if(index == -1)
+                {
+                    MpixelR(imgColored, x, y) = Mpixel(imgOri, x, y);
+                    MpixelG(imgColored, x, y) = Mpixel(imgOri, x, y);
+                    MpixelB(imgColored, x, y) = Mpixel(imgOri, x, y);
+                }
+                else
+                {
+                    MpixelR(imgColored, x, y) = pRGB[index].r;
+                    MpixelG(imgColored, x, y) = pRGB[index].g;
+                    MpixelB(imgColored, x, y) = pRGB[index].b;
+                }
             }
         }
+        pRGB.clear();
+        return imgColored;
     }
 
-    //delete(matrixA);
-    return imgColored;
 
+    return imgOri;
 }
