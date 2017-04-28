@@ -50,12 +50,14 @@ CPoint::CPoint(int x, int y)
     this->y = y;
 }
 
+
 bool CPoint::operator< (const CPoint& pt) const
 {
    if(this->x < pt.x)
     {
         return true;
     }
+    /*
     else if(this->x == pt.x)
     {
         if(this->y < pt.y)
@@ -74,6 +76,8 @@ bool CPoint::operator< (const CPoint& pt) const
     {
         return false;
     }
+    */
+    return false;
 };
 
 struct RGB
@@ -92,6 +96,7 @@ typedef std::vector<point_set> set_vector;
 *
 *************************************************************************/
 Mat do_median_filter(Mat imgOri);
+Mat do_smoothing(Mat imgOri);
 Mat do_threshold_filter(Mat imgOri, int flag);
 Mat count_object(Mat imgOri, int* number);
 
@@ -138,7 +143,9 @@ int main(int argc, char** argv)
 
             cvtColor(frame, outframe, CV_BGR2GRAY);
             Mat imgMedianFilter = do_median_filter(outframe);
-            Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
+            Mat imgSmoothing, imgLaplacian;
+            GaussianBlur(imgMedianFilter, imgSmoothing, cv::Size(0, 0), 3);
+            Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 0);
             Mat imgColored = count_object(imgThresholdFilter, &num);
 
             key = waitKey(1);
@@ -164,15 +171,21 @@ int main(int argc, char** argv)
 
         namedWindow("Step2: MedianFilterImage", 0);
         Mat imgMedianFilter = do_median_filter(imgOri);
-        imshow("Step2: MedianFilterImage", imgMedianFilter);
+        Mat imgSmoothing, imgLaplacian;
+        GaussianBlur(imgMedianFilter, imgSmoothing, cv::Size(0, 0), 3);
+        //cvtColor(imgOri, imgSmoothing, CV_BGR2GRAY);
+        //Laplacian(imgSmoothing, imgLaplacian, CV_16S, 3);
+
+        imshow("Step2: MedianFilterImage", imgSmoothing);
 
         namedWindow("Step3: ThresholdFilterImage", 0);
-        Mat imgThresholdFilter = do_threshold_filter(imgMedianFilter, 1);
+        Mat imgThresholdFilter = do_threshold_filter(imgSmoothing, 1);
         imshow("Step3: ThresholdFilterImage", imgThresholdFilter);
 
+        Mat imgMedianFilter2 = do_median_filter(imgThresholdFilter);
         int num = 0;
         namedWindow("Step4: ColoredImage", 0);
-        Mat imgColored = count_object(imgThresholdFilter, &num);
+        Mat imgColored = count_object(imgMedianFilter2, &num);
         cout<<"the number is "<<num<<endl;
         char printit[100];
         sprintf(printit," %d",num);
@@ -314,7 +327,6 @@ Mat do_median_filter(Mat imgOri)
         }
     return imgPcd;
 }
-
 /************************************************************************
 *
 * The impletation of threshold filter
@@ -354,8 +366,9 @@ Mat count_object(Mat imgOri, int* number)
     int width = imgOri.cols;
     int height = imgOri.rows;
 
-    //std::vector<int> matrixA;
-    //matrixA.assign(width * height, -1);
+    std::vector<int> matrixA;
+    matrixA.assign(width * height, -1);
+    /*
     int* matrixA = new int[width* height];
     for(int y=0; y<height; y++)
     {
@@ -364,6 +377,7 @@ Mat count_object(Mat imgOri, int* number)
             matrixA[x+ y *width] = -1;
         }
     }
+    */
     /************************************************************************
     *
     * The implementation of object labeling algorithm using 4-adjacency
@@ -375,36 +389,48 @@ Mat count_object(Mat imgOri, int* number)
         {
             if((int)Mpixel(imgOri, x, y)  != 0)
             {
+                int index = x + y * width;
                 if((int)Mpixel(imgOri, x-1, y) != 0 || (int)Mpixel(imgOri, x, y-1) != 0)
                 {
                     s1 = matrixA[(x - 1) + (y * width)];
                     s2 = matrixA[x +  ((y - 1) * width)];
 
-
                     if(s1 != -1)
                     {
                         point_set* pset = &vec[s1];
                         pset->insert(CPoint(x, y));
-                        matrixA[x + y * width] = s1;
+                        matrixA[index] = s1;
                     }
 
                     if(s2 != -1)
                     {
                         point_set* pset = &vec[s2];
                         pset->insert(CPoint(x, y));
-                        matrixA[x + y * width] = s2;
+                        matrixA[index] = s2;
                     }
 
                     if((s1 != s2) && (s1 != -1) && (s2 != -1))
                     {
                         point_set* pset2 = &vec[s2];
                         point_set* pset1 = &vec[s1];
-                        for(point_set::iterator it=pset2->begin(); it!=pset2->end(); it++)
+                        if(pset2->size()< pset1->size())
                         {
-                            matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s1;
+                            for(point_set::iterator it=pset2->begin(); it!=pset2->end(); it++)
+                            {
+                                //pset1->insert(*it);
+                                matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s1;
+                            }
+                            pset1->insert(pset2->begin(), pset2->end());
+                        }
+                        else{
+                            for(point_set::iterator it=pset1->begin(); it!=pset1->end(); it++)
+                            {
+                                //pset1->insert(*it);
+                                matrixA[((CPoint)*it).x + ((CPoint)*it).y * width] = s2;
+                            }
+                            pset2->insert(pset1->begin(), pset1->end());
                         }
 
-                        pset1->insert(pset2->begin(), pset2->end());
                         pset2->clear();
                         pset2 = NULL;
                     }
@@ -416,7 +442,7 @@ Mat count_object(Mat imgOri, int* number)
 
                     setofobj.insert(CPoint(x, y));
                     vec.push_back(setofobj);
-                    matrixA[x + y * width] = counter;;
+                    matrixA[index] = counter;;
                 }
             }
 
@@ -429,6 +455,7 @@ Mat count_object(Mat imgOri, int* number)
     *
     *************************************************************************/
     int num = 0;
+
     if(!vec.empty())
     {
         for(set_vector::iterator it=vec.begin(); it!=vec.end(); it++)
@@ -440,6 +467,7 @@ Mat count_object(Mat imgOri, int* number)
             }
         }
     }
+
     *number = num;
 
     std::vector<RGB> pRGB;
@@ -473,7 +501,8 @@ Mat count_object(Mat imgOri, int* number)
             }
         }
     }
-    delete(matrixA);
+
+    //delete(matrixA);
     return imgColored;
 
 }
